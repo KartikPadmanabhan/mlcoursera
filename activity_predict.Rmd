@@ -1,0 +1,157 @@
+# Personal Activity Prediction From Machine Learning Techniques
+===============================================================
+```{r setup, include=FALSE}
+opts_chunk$set(dev = 'pdf',cache=TRUE,eval=TRUE)
+```
+
+## Executive Summary
+The goal of this exercise is to use the reading from several sensory data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, and to predict the outcome of the manner in which they did the exercise. This outcome is denoted by classe variable in the dataset. These participants were further asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+We have surveyed different machine learning techniques and concluded that Random Forest was the best model for predicting the manner in which the participants did the exercise.
+
+## Data Loading
+
+We download the dataset and store it in directory provided these datasets are already not downloaded in the R work directory before.
+```{r,results='hide',cache=TRUE}
+setwd("/Users/uthrakartik/fitbit")
+```
+
+```{r,results='hide',cache=TRUE}
+# Download training data if already not download
+if (!file.exists("training.csv")){
+# URL of Dataset
+   fileURL1<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+# downloads the zipped file and renames it to something simple(dataset.zip)
+   download.file(fileURL1,destfile="training.csv",method="curl")
+# Date stamp the data downloaded
+   dateDownloaded<-date()
+}
+
+# Download testing data if already not download
+if (!file.exists("testing.csv")){
+# URL of Dataset
+   fileURL2<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+# downloads the zipped file and renames it to something simple(dataset.zip)
+   download.file(fileURL2,destfile="testing.csv",method="curl")
+# Date stamp the data downloaded
+   dateDownloaded<-date()
+}
+```
+
+## Data Pre-processing and Feature Selection
+During pre-processing we read the testing and training datasets with read.csv functions. We removed variables that are not sensor measures and that consist mostly of NAs and blanks. Since the goal of this exercise is to build a prediction model based on sensor measurements we also ignore the columns that arent relevant to any sensory values. 
+
+```{r}
+# read training dataset for pre-processing
+finaltraining <- read.csv("training.csv", header = T, na.strings = c("NA", ""))
+# read testing dataset for pre-processing
+finaltesting <- read.csv("testing.csv", header = T, na.strings = c("NA", ""))
+# remove columns from training set that consist mostly of NAs and blanks
+finaltraining  <- finaltraining[, colSums(!is.na(finaltraining)) == nrow(finaltraining)]
+# also remove other columns that actually do not sensor measurements
+finaltraining <- subset(finaltraining, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2,cvtd_timestamp, new_window, num_window))
+finaltesting  <- finaltesting[, colSums(!is.na(finaltesting)) == nrow(finaltesting)]
+# also remove other columns that actually do not sensor measurements
+finaltesting <- subset(finaltesting, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2,cvtd_timestamp, new_window, num_window))
+```
+
+If we introspect on our finaltesting data, there is no classe variable which is the outcome for our prediction model. If we try to build a model around our finaltraining data we wont be able to evaluate the accuracy of our modellers. We we divide our finaltraining into 2 pieces: a training and a validation dataframe.
+```{r}
+set.seed(1)
+library(caret)
+inTrain <- createDataPartition(y = finaltraining$classe, p = 0.7, list = FALSE)
+training <- finaltraining[inTrain, ]  #13737 obs.
+validation <- finaltraining[-inTrain, ]  #5885 obs.   
+```
+
+Here is our final partitioned tidy dataset (13737 obs. of  53 variables) that contains the measurements data from only sensors that we can use it to build our prediction model upon. 
+```{r}
+str(training)
+```
+
+## Predictive Modelling 
+In this section we go through a series of predictive modelling tools, a.k.a. 1. Tree based modelling, 2. Bagging, 3. Random Forest and 4. Boosting and analyze the performance of these model in order to give us the best prediction algorithm for our dataset. The "classe" variable is the outcome variable where we build out training models. 
+
+### Tree based modelling
+A tree-based prediction method (e.g. CART) partitions the feature (variables) space into a set of rectangles, on which fixed constants (predictions) are assigned. We can use the rpart function in the rpart package, which implements CART. We also use prp to plot rplot trees with better rendering options.
+
+```{r,  fig.width = 18, fig.height = 10, , message=F, warning=F}
+library(rpart)
+library(rpart.plot)
+p1 <- rpart(classe ~ ., data = training)
+prp(p1, extra=6, box.col=c("pink", "palegreen3")[p1$frame$yval])
+```
+
+### Bagging
+Bagging (Boostrap Aggregation) simply grows multiple trees, each tree growing on a different bootstrap sample. It then reports the majority vote or mean response (across all trees) as the prediction. We can use the bagging function in the ipred package. The coob option used below requests the out-of-bag estimate of the misclassification error.
+
+```{r,cache=TRUE}
+library(ipred)
+p2 <- bagging(classe ~ ., data = training, coob = T)
+p2
+```
+
+### Random Forest
+Random Forest injects additional randomness into the bagging procedure on trees: each node is split using the best among a subset of predictors randomly chosen at that node, instead of the full set. This prediction model usually provides superior performance and is robust against overfitting by keeping healthy SNR (signal to noise ratio). We make use of CRAN's randomForest library to use this prediction, and the plot method traces the error rates (out-of-bag, and by each response category) as the number of trees increases.
+
+```{r,cache=TRUE, fig.width = 18, fig.height = 10, , message=F, warning=F}
+library(randomForest)
+p3 <- randomForest(classe ~ ., data = training, importance = T)
+p3
+plot(p3)
+
+```
+
+The importance option in the randomForest function requests the assessment of predictor importances. Here is the barplot containing global measure in the mean descrease in accuracy over all classes:
+
+```{r,cache=TRUE,  message=F, warning=F}
+ barplot(p3$importance[, 7], main = "Importance (Dec.Accuracy)")
+```
+
+## Testing Prediction Models
+The prediction dataframe on the validation dataset sample for Tree, Bagging, and Random Forest is:
+
+```{r,cache=TRUE}
+output<-data.frame(Truth = validation$classe, Tree = predict(p1, validation, type = "class"), Bagging = predict(p2, validation), Forest = predict(p3, validation))
+sum(output$Truth==output$Tree);sum(output$Truth==output$Bagging);sum(output$Truth==output$Forest)
+```
+Note that the original validation set we had 5885 observations of 53 variables. As we can see RandomForest algorithm seemed to have done much better of predicting 5866 out of 5885 variables correctly among the other 2 algorithms. For more formal and accurate estimation of comparision of these algorithms, we go with error rate estimate of all three models.
+
+### Error Rate Estimation
+
+To compare the performances of different prediction tools, we can do a 10-fold cross validation to estimate the test error, using the errorest function in the ipred package.
+
+```{r}
+library(ipred)
+library(rpart)
+library(randomForest)
+mypredict.rpart <- function(object, newdata) {
+predict(object, newdata = newdata, type = "class")
+}
+
+c(Tree = errorest(classe ~ ., data = validation, model = rpart, predict = mypredict.rpart)$error , Bagging = errorest(classe ~ ., data = validation, model = bagging)$error, Forest = errorest(classe ~ ., data = validation, model = randomForest)$error)
+
+```
+
+## Conclusion
+
+We conclude that the RandomForest is the best prediction model for our dataset. The error estimation obtained by RandomForest is conclusively lower than that of the other modellers we have surveyed.
+
+Applying our final prediction model applied to our final testing dataset.
+
+```{r}
+library(randomForest)
+answers <- predict(p3, finaltesting)
+summary(answers)
+```
+
+Here is the submission file that we need to generate in order to complete the second part of this project.
+```{r submit,eval=FALSE}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+```
