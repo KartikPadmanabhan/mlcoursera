@@ -1,11 +1,11 @@
 # Useful links:
-```
-*Github Page* For Project: https://github.com/KartikPadmanabhan/mlcoursera
 
-*gh-page branch* for Project Report:  http://kartikpadmanabhan.github.io/mlcoursera/activity_predict.html
+**Github Page** For Project: https://github.com/KartikPadmanabhan/mlcoursera
 
-*gh-page branch* for Project Readme: http://kartikpadmanabhan.github.io/mlcoursera/ 
-```
+**gh-page branch** for Project Report:  http://kartikpadmanabhan.github.io/mlcoursera/activity_predict.html
+
+**gh-page branch** for Project Readme: http://kartikpadmanabhan.github.io/mlcoursera/ 
+
 
 # Background
 
