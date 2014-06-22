@@ -22,12 +22,18 @@ The goal of our project is to predict the manner in which they did the exercise.
 
 ## Dependencies
 
-This project depends on the following packages installed through CRAN
+This project depends on the following packages installed through CRAN:
+a. caret (for creating data partitions)
+b. rpart (for tree modelling)
+c. rpart.plot (for plotting better trees than plot() functions)
+d. ipred (for bootstrap aggregation)
+e. randomForest (for random forests)
+f. knitrBootstrap (pls see below for bootstrap details)
 
 
 ## HTML Rendering
 
-We make use of bootstrap to add beauty to html report. To install bootstrap please
+We make use of bootstrap to add beauty to html report. To install bootstrap please install it the following way:
 
 ```
 library(devtools)
